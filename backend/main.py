@@ -34,7 +34,7 @@ app.add_middleware(
 )
 
 # 配置
-OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://172.27.144.1:11434")
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:7b")
 VECTOR_DB_PATH = Path("data/vector_db.pkl")
 
