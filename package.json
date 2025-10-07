@@ -1,0 +1,30 @@
+{
+  "name": "arxiv-rag-qwen-system",
+  "version": "1.0.0",
+  "description": "ArXiv论文搜索引擎 - 基于Qwen大模型和RAG技术",
+  "scripts": {
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:backend": "cd backend && python run.py",
+    "build:frontend": "cd frontend && npm run build",
+    "install:frontend": "cd frontend && npm install",
+    "install:backend": "cd backend && pip install -r requirements.txt",
+    "test:api": "cd backend && python test_api.py",
+    "start:backend": "cd backend && python run.py",
+    "start:frontend": "cd frontend && npm run dev",
+    "setup": "npm run install:frontend && echo '请手动安装后端依赖: cd backend && pip install -r requirements.txt'"
+  },
+  "keywords": [
+    "arxiv",
+    "rag",
+    "qwen",
+    "machine-learning",
+    "research",
+    "paper-search"
+  ],
+  "author": "Student Project",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/arxiv-rag-qwen"
+  }
+}
