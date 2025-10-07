@@ -11,4 +11,4 @@
   NODE_VERSION = "18"
 
 # 生产环境API地址（部署时需要修改为实际后端地址）
-VITE_LOCAL_API_BASE = "https://your-backend-api.herokuapp.com"
+VITE_LOCAL_API_BASE = "https://monopodially-invadable-leona.ngrok-free.dev"
