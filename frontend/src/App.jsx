@@ -46,7 +46,7 @@ const MathText = ({ children }) => {
   return <div dangerouslySetInnerHTML={renderMath(children)} />;
 };
 
-const API_BASE = import.meta.env.VITE_LOCAL_API_BASE || 'https://monopodially-invadable-leona.ngrok-free.dev'
+const API_BASE = import.meta.env.VITE_LOCAL_API_BASE || 'http:127.0.0.1:8001'
 
 export default function App() {
   const [query, setQuery] = useState('')

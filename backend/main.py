@@ -1,19 +1,14 @@
+import logging
+import os
+from datetime import datetime
+from pathlib import Path
+from typing import List, Optional, Dict
+
+import arxiv
+import requests
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List, Optional, Dict, Any
-import requests
-import json
-import arxiv
-import os
-from datetime import datetime
-import logging
-import asyncio
-import faiss
-import numpy as np
-import pickle
-from pathlib import Path
-
 # 简单的文本相似度计算，避免复杂的依赖
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
@@ -38,6 +33,7 @@ OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:7b")
 VECTOR_DB_PATH = Path("data/vector_db.pkl")
 
+
 # 数据模型
 class SearchRequest(BaseModel):
     query: str
@@ -46,11 +42,13 @@ class SearchRequest(BaseModel):
     page: int = 1
     page_size: int = 10
 
+
 class AskRequest(BaseModel):
     query: str
     question: str
     max_results: int = 5
     top_k: int = 5
+
 
 class Paper(BaseModel):
     paper_id: str
@@ -62,6 +60,7 @@ class Paper(BaseModel):
     arxiv_url: str
     pdf_url: Optional[str] = None
 
+
 class Citation(BaseModel):
     paper_id: str
     title: str
@@ -71,15 +70,18 @@ class Citation(BaseModel):
     chunk_index: int
     content: str
 
+
 class SearchResponse(BaseModel):
     papers: List[Paper]
     page: int
     total_pages: int
     total: int
 
+
 class AskResponse(BaseModel):
     answer: str
     citations: List[Citation]
+
 
 # 向量数据库类
 class VectorDB:
@@ -88,14 +90,14 @@ class VectorDB:
         self.papers = []
         self.chunks = []
         self.embeddings = []
-        
+
     def add_papers(self, papers: List[Paper]):
         """添加论文到向量数据库"""
         for paper in papers:
             # 将论文摘要分成多个chunk
             chunk_size = 500
-            summary_chunks = [paper.summary[i:i+chunk_size] for i in range(0, len(paper.summary), chunk_size)]
-            
+            summary_chunks = [paper.summary[i:i + chunk_size] for i in range(0, len(paper.summary), chunk_size)]
+
             for i, chunk in enumerate(summary_chunks):
                 self.chunks.append({
                     'paper_id': paper.paper_id,
@@ -106,26 +108,26 @@ class VectorDB:
                     'chunk_index': i,
                     'content': chunk
                 })
-        
+
         # 使用TF-IDF进行文本相似度计算（简化版本）
         if self.chunks:
             self.vectorizer = TfidfVectorizer(max_features=1000, stop_words='english')
             texts = [chunk['content'] for chunk in self.chunks]
             self.tfidf_matrix = self.vectorizer.fit_transform(texts)
             logger.info(f"向量数据库已更新，包含 {len(self.chunks)} 个chunk")
-    
+
     def search(self, query: str, top_k: int = 5) -> List[Dict]:
         """在向量数据库中搜索相关chunk"""
         if not hasattr(self, 'tfidf_matrix') or len(self.chunks) == 0:
             return []
-            
+
         # 使用TF-IDF计算相似度
         query_vec = self.vectorizer.transform([query])
         similarities = cosine_similarity(query_vec, self.tfidf_matrix).flatten()
-        
+
         # 获取最相似的top_k个结果
         top_indices = similarities.argsort()[-top_k:][::-1]
-        
+
         results = []
         for idx in top_indices:
             if idx < len(self.chunks):
@@ -134,11 +136,13 @@ class VectorDB:
                     **chunk,
                     'similarity': similarities[idx]
                 })
-        
+
         return results
+
 
 # 全局向量数据库实例
 vector_db = VectorDB()
+
 
 def call_ollama(messages: List[Dict]) -> str:
     """调用本地Ollama模型"""
@@ -148,7 +152,7 @@ def call_ollama(messages: List[Dict]) -> str:
         "messages": messages,
         "stream": False
     }
-    
+
     try:
         response = requests.post(url, json=payload, timeout=60)
         response.raise_for_status()
@@ -157,6 +161,7 @@ def call_ollama(messages: List[Dict]) -> str:
     except Exception as e:
         logger.error(f"调用Ollama失败: {e}")
         raise HTTPException(status_code=500, detail=f"模型调用失败: {str(e)}")
+
 
 def search_arxiv_papers(query: str, max_results: int = 20, sort_by: str = "relevance") -> List[Paper]:
     """搜索ArXiv论文"""
@@ -168,14 +173,14 @@ def search_arxiv_papers(query: str, max_results: int = 20, sort_by: str = "relev
             sort_criterion = arxiv.SortCriterion.Relevance  # Arxiv API不支持按标题排序
         else:
             sort_criterion = arxiv.SortCriterion.Relevance
-            
+
         client = arxiv.Client()
         search = arxiv.Search(
             query=query,
             max_results=max_results,
             sort_by=sort_criterion
         )
-        
+
         papers = []
         for result in client.results(search):
             paper = Paper(
@@ -184,22 +189,25 @@ def search_arxiv_papers(query: str, max_results: int = 20, sort_by: str = "relev
                 authors=[author.name for author in result.authors],
                 summary=result.summary,
                 published=result.published.strftime("%Y-%m-%d"),
-                updated=result.updated.strftime("%Y-%m-%d") if result.updated else result.published.strftime("%Y-%m-%d"),
+                updated=result.updated.strftime("%Y-%m-%d") if result.updated else result.published.strftime(
+                    "%Y-%m-%d"),
                 arxiv_url=result.entry_id,
                 pdf_url=result.pdf_url
             )
             papers.append(paper)
-        
+
         logger.info(f"从ArXiv搜索到 {len(papers)} 篇论文")
         return papers
-        
+
     except Exception as e:
         logger.error(f"ArXiv搜索失败: {e}")
         raise HTTPException(status_code=500, detail=f"论文搜索失败: {str(e)}")
 
+
 @app.get("/")
 async def root():
     return {"message": "ArXiv RAG API 服务运行中", "version": "1.0.0"}
+
 
 @app.post("/search", response_model=SearchResponse)
 async def search_papers(request: SearchRequest):
@@ -211,27 +219,28 @@ async def search_papers(request: SearchRequest):
             max_results=request.max_results,
             sort_by=request.sort_by
         )
-        
+
         # 更新向量数据库
         vector_db.add_papers(papers)
-        
+
         # 分页处理
         start_idx = (request.page - 1) * request.page_size
         end_idx = start_idx + request.page_size
         paginated_papers = papers[start_idx:end_idx]
-        
+
         total_pages = (len(papers) + request.page_size - 1) // request.page_size
-        
+
         return SearchResponse(
             papers=paginated_papers,
             page=request.page,
             total_pages=total_pages,
             total=len(papers)
         )
-        
+
     except Exception as e:
         logger.error(f"搜索接口错误: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.post("/ask", response_model=AskResponse)
 async def ask_question(request: AskRequest):
@@ -239,17 +248,17 @@ async def ask_question(request: AskRequest):
     try:
         # 在向量数据库中搜索相关chunk
         relevant_chunks = vector_db.search(request.question, top_k=request.top_k)
-        
+
         if not relevant_chunks:
             raise HTTPException(status_code=404, detail="未找到相关论文内容")
-        
+
         # 构建上下文
         context = "以下是从相关论文中检索到的内容：\n\n"
         for i, chunk in enumerate(relevant_chunks):
-            context += f"【论文 {i+1}】{chunk['title']}\n"
+            context += f"【论文 {i + 1}】{chunk['title']}\n"
             context += f"作者：{', '.join(chunk['authors'])}\n"
             context += f"内容：{chunk['content']}\n\n"
-        
+
         # 构建提示词
         prompt = f"""基于以下论文内容，请回答用户的问题。
 
@@ -265,9 +274,9 @@ async def ask_question(request: AskRequest):
             {"role": "system", "content": "你是一个专业的学术助手，基于提供的论文内容回答用户问题。"},
             {"role": "user", "content": prompt}
         ]
-        
+
         answer = call_ollama(messages)
-        
+
         # 构建引用信息
         citations = []
         for chunk in relevant_chunks:
@@ -281,17 +290,18 @@ async def ask_question(request: AskRequest):
                 content=chunk['content'][:200] + "..."  # 截取部分内容
             )
             citations.append(citation)
-        
+
         return AskResponse(
             answer=answer,
             citations=citations
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"问答接口错误: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.get("/health")
 async def health_check():
@@ -307,6 +317,8 @@ async def health_check():
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"服务异常: {str(e)}")
 
+
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8001)
